@@ -1,0 +1,2 @@
+# Keeps the results/ directory in version control. comparison.csv and the per-run
+# .html charts are written here (and are git-ignored).

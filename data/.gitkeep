@@ -1,0 +1,2 @@
+# Keeps the data/ directory in version control. Downloaded price CSVs land here
+# (and are git-ignored). Safe to delete the CSVs anytime; they re-download.
