@@ -13,6 +13,15 @@ def build_table(rows: list[dict]) -> pd.DataFrame:
     """Assemble the per-(coin, strategy) rows into one tidy DataFrame."""
     df = pd.DataFrame(rows)
 
+    # The ONE fair comparison: how much the strategy beat (or lagged) buy & hold
+    # *on its own row*. Read this, not the raw Return column -- each strategy's
+    # Return spans a different window because of indicator warm-up (see the
+    # README warm-up note), so Returns aren't comparable straight down the column.
+    if {"Return [%]", "Buy & Hold Return [%]"} <= set(df.columns):
+        excess = df["Return [%]"] - df["Buy & Hold Return [%]"]
+        df.insert(df.columns.get_loc("Buy & Hold Return [%]") + 1,
+                  "Excess vs B&H [%]", excess)
+
     # Round the numeric columns for readability; keep # Trades as a whole number.
     numeric = [c for c in df.columns if c not in ("Coin", "Strategy")]
     df[numeric] = df[numeric].round(2)

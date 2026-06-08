@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from crypto_trend import data
 from crypto_trend.backtest import run_backtest
@@ -64,6 +65,45 @@ def test_buy_and_hold_tracks_the_underlying():
     price_change_pct = (prices["Close"].iloc[-1] / prices["Close"].iloc[0] - 1) * 100
     # Within a few % (fees + the ~1% cash buffer from SIZE=0.99).
     assert abs(stats["Return [%]"] - price_change_pct) < 5
+
+
+def test_orders_fill_at_next_open_not_the_signal_bar():
+    """No lookahead: a signal computed on a bar's close must fill at the NEXT
+    bar's OPEN, never on the signal bar itself. We build a flat series that breaks
+    out on one bar and check exactly where the resulting trade entered."""
+    n = 40
+    o = np.full(n, 100.0)
+    h = np.full(n, 100.0)
+    low = np.full(n, 100.0)
+    c = np.full(n, 100.0)
+
+    sig = 30                       # the breakout signal fires on this bar's close
+    c[sig] = 110.0                 # close pops above the prior 20-day high (=100)
+    h[sig] = 110.0
+    o[sig + 1] = 105.0             # the fill must land HERE: next bar's open
+    # Keep prices elevated afterwards so the position stays open (no exit).
+    for arr in (o, c, h):
+        arr[sig + 1:] = np.maximum(arr[sig + 1:], 105.0)
+    low[sig + 1:] = 104.0
+
+    idx = pd.date_range("2020-01-01", periods=n, freq="D")
+    df = pd.DataFrame({"Open": o, "High": h, "Low": low, "Close": c, "Volume": 1}, index=idx)
+
+    _, stats = run_backtest(df, DonchianBreakout)
+    trades = stats["_trades"]
+    assert len(trades) >= 1, "expected the breakout to open a trade"
+    entry = trades.iloc[0]
+    assert int(entry["EntryBar"]) == sig + 1          # the bar AFTER the signal
+    assert entry["EntryPrice"] == pytest.approx(105.0)  # that bar's OPEN, not 110
+
+
+def test_strategy_params_are_overridable_per_run():
+    """run_backtest(..., params=...) must change behaviour without touching config.
+    Faster moving averages cross more often, so they should trade more."""
+    prices = _synthetic_prices()
+    _, base = run_backtest(prices, SmaCross)                              # 20/100
+    _, fast = run_backtest(prices, SmaCross, params={"fast": 5, "slow": 10})
+    assert fast["# Trades"] != base["# Trades"]
 
 
 def test_clean_flattens_multiindex_and_fixes_case():

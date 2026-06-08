@@ -15,9 +15,16 @@ import pathlib
 # Add more (e.g. "SOL-USD", "BNB-USD") and they'll be included automatically.
 COINS: list[str] = ["BTC-USD", "ETH-USD"]
 
-# Backtest window. END = None means "up to today".
-# (BTC history on Yahoo goes back to 2014; ETH only to late 2017, so 2017 is a
-#  sensible common start that gives every coin a long, multi-cycle history.)
+# The cache stores the FULL available history (this date -> today) for each coin,
+# and every run slices that down to [START, END] below. You shouldn't need to
+# change this -- it just sets how far back the one-time download reaches. (BTC on
+# Yahoo starts ~2014; ETH only late 2017. yfinance returns each coin from its own
+# inception regardless, so an early date here is harmless.)
+HISTORY_START: str = "2014-01-01"
+
+# Backtest (analysis) window. END = None means "up to the latest cached bar".
+# Changing these re-slices the cache on the next run -- you do NOT need to delete
+# the CSVs (pass refresh=True or delete them only to pull *newer* bars).
 START: str = "2017-01-01"
 END: str | None = None
 

@@ -44,8 +44,14 @@ def run_backtest(
     cash: float | None = None,
     commission: float | None = None,
     plot_path: str | Path | None = None,
+    params: dict | None = None,
 ) -> tuple[Backtest, pd.Series]:
     """Backtest one strategy on one coin. Returns (Backtest, stats Series).
+
+    Pass `params` to override strategy attributes for this run without editing
+    config.py, e.g. ``params={"fast": 50, "slow": 200}``. backtesting.py copies
+    each key onto the strategy, which is what enables parameter sweeps and
+    walk-forward testing in a single process.
 
     If `plot_path` is given, an interactive HTML chart is written there.
     """
@@ -56,7 +62,7 @@ def run_backtest(
         commission=config.COMMISSION if commission is None else commission,
         finalize_trades=True,  # close any still-open trade at the end, for fair stats
     )
-    stats = bt.run()
+    stats = bt.run(**(params or {}))
 
     if plot_path is not None:
         # Plotting is a "nice to have" -- never let a chart failure kill the run.

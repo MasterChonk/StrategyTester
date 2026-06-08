@@ -13,6 +13,13 @@ price. That's realistic: you decide based on today's close, you trade tomorrow.
 All three strategies below are "long-or-cash": they are either fully invested in
 the coin or sitting in cash. No shorting, no leverage -- the simplest, most
 realistic setup for someone buying spot crypto.
+
+Every tunable lives on the class as a plain attribute (``fast``, ``slow``,
+``entry``, ``exit``, ``size``), defaulting to the values in config.py. Because
+backtesting.py copies any keyword you pass to ``Backtest.run(...)`` onto the
+strategy, you can override them per run without editing config -- e.g.
+``run_backtest(prices, SmaCross, params={"fast": 50, "slow": 200})``. That's what
+makes parameter sweeps and walk-forward testing possible in a single process.
 """
 
 from __future__ import annotations
@@ -51,6 +58,7 @@ class SmaCross(Strategy):
 
     fast = config.SMA_FAST
     slow = config.SMA_SLOW
+    size = config.SIZE
 
     def init(self):
         price = self.data.Close
@@ -61,7 +69,7 @@ class SmaCross(Strategy):
         # crossover(a, b) is True only on the bar where `a` rises above `b`.
         if crossover(self.ma_fast, self.ma_slow):
             if not self.position:           # only buy if we're currently in cash
-                self.buy(size=config.SIZE)
+                self.buy(size=self.size)
         elif crossover(self.ma_slow, self.ma_fast):
             self.position.close()           # exit to cash on the down-cross
 
@@ -74,6 +82,7 @@ class DonchianBreakout(Strategy):
 
     entry = config.DONCHIAN_ENTRY
     exit = config.DONCHIAN_EXIT
+    size = config.SIZE
 
     def init(self):
         # Channels are built from High/Low. We compare today's price to the
@@ -87,7 +96,7 @@ class DonchianBreakout(Strategy):
     def next(self):
         price = self.data.Close[-1]
         if not self.position and price > self.hh[-2]:
-            self.buy(size=config.SIZE)
+            self.buy(size=self.size)
         elif self.position and price < self.ll[-2]:
             self.position.close()
 
@@ -98,9 +107,11 @@ class BuyAndHold(Strategy):
     """Buy on the very first day and hold forever. The yardstick every active
     strategy must beat to justify its trading (and its fees)."""
 
+    size = config.SIZE
+
     def init(self):
         pass  # no indicators needed
 
     def next(self):
         if not self.position:
-            self.buy(size=config.SIZE)
+            self.buy(size=self.size)
